@@ -6,9 +6,6 @@ import pandas as pd
 import xarray as xr
 import numpy as np
 
-LAT_KEY = "lat_110"
-LON_KEY = "lon_110"
-
 
 def get_nc_files(dir):
     files = os.listdir(dir)
@@ -98,6 +95,8 @@ if __name__ == "__main__":
     OUTPUT_DATA_DIR = f"{NLDAS_DIR}{sep}regridded"
     GRID_FILE = f"{OUTPUT_DATA_DIR}{sep}grid.txt"
     WILDFIRE_FILE = f"{DATA_DIR}{sep}wildfire_and_index.csv"
+    LAT_KEY = "lat_110"
+    LON_KEY = "lon_110"
     XSIZE = 128
     YSIZE = XSIZE
 
@@ -127,5 +126,5 @@ if __name__ == "__main__":
 
         ds = ds.assign(acres_burned=((LAT_KEY, LON_KEY), acres))
         # ds = ds.assign(acres_burned=lambda x: debugging(x.lat_110, x.lon_110))
-        print(ds)
+        # print(ds)
         ds.to_netcdf(output)
