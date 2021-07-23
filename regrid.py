@@ -4,6 +4,8 @@ from os.path import sep
 import pandas as pd
 import xarray as xr
 import numpy as np
+import multiprocessing as mp
+import functools as ft
 
 
 def get_nc_files(dir):
@@ -39,7 +41,7 @@ yinc      = {abs(LAT_MIN + LAT_MAX) / ysize}"""
 
 
 def regrid_file(grid_file, input, output):
-    sp.run(f"cdo -remapcon,{grid_file} {input} {output}".split(), check=True)
+    sp.run(f" cdo -remapdis,{grid_file} {input} {output}".split(), check=True)
 
 
 def get_file_date(file):
@@ -88,6 +90,25 @@ def get_acres_burned(dataset, lat1, lat2, lon1, lon2):
     return sum(fires_in_cell)
 
 
+def regrid_file_and_embed_data(dataset, input, output):
+    regrid_file(GRID_FILE, input, output)
+
+    date = get_file_date(input)
+    wildfires_on_date = dataset.query("date == @date")
+    ds = xr.load_dataset(output)
+    cells = get_cells(ds)
+    # It's easier to modify a flat array then reshape
+    acres = np.zeros(YSIZE * XSIZE, dtype='float32')
+    for i, (lat1, lat2, lon1, lon2) in enumerate(cells):
+        acres[i] = get_acres_burned(wildfires_on_date, lat1, lat2, lon1, lon2)
+    acres = acres.reshape((YSIZE, XSIZE))
+
+    ds = ds.assign(acres_burned=((LAT_KEY, LON_KEY), acres))
+    # ds = ds.assign(acres_burned=lambda x: debugging(x.lat_110, x.lon_110))
+    # print(ds)
+    ds.to_netcdf(output)
+
+
 if __name__ == "__main__":
     DATA_DIR = "data"
     NLDAS_DIR = f"{DATA_DIR}{sep}NLDAS-2"
@@ -110,20 +131,8 @@ if __name__ == "__main__":
 
     create_grid_file(GRID_FILE, XSIZE, YSIZE)
     wildfire_data = pd.read_csv(WILDFIRE_FILE)
-    for input, output in zip(input_file_paths, output_file_paths):
-        regrid_file(GRID_FILE, input, output)
-
-        date = get_file_date(input)
-        wildfires_on_date = wildfire_data.query("date == @date")
-        ds = xr.load_dataset(output)
-        cells = get_cells(ds)
-        # It's easier to modify a flat array then reshape
-        acres = np.zeros(YSIZE * XSIZE)
-        for i, (lat1, lat2, lon1, lon2) in enumerate(cells):
-            acres[i] = get_acres_burned(wildfires_on_date, lat1, lat2, lon1, lon2)
-        acres = acres.reshape((YSIZE, XSIZE))
-
-        ds = ds.assign(acres_burned=((LAT_KEY, LON_KEY), acres))
-        # ds = ds.assign(acres_burned=lambda x: debugging(x.lat_110, x.lon_110))
-        # print(ds)
-        ds.to_netcdf(output)
+    with mp.Pool(processes=mp.cpu_count()) as p:
+        regridder = ft.partial(regrid_file_and_embed_data, wildfire_data)
+        # for input, output in zip(input_file_paths, output_file_paths):
+        # regridder(input, output)
+        results = p.starmap(regridder, zip(input_file_paths, output_file_paths))
