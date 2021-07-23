@@ -1,7 +1,6 @@
 import os
 import subprocess as sp
 from os.path import sep
-from syslog import LOG_LOCAL0
 import pandas as pd
 import xarray as xr
 import numpy as np
