@@ -33,9 +33,9 @@ yname     = {LAT_KEY}
 ylongname = "latitude"
 yunits    = "degrees_north"
 xfirst    = {LON_MIN}
-xinc      = {abs(LON_MIN + LON_MAX) / xsize}
+xinc      = {abs(LON_MAX - LON_MIN) / xsize}
 yfirst    = {LAT_MIN}
-yinc      = {abs(LAT_MIN + LAT_MAX) / ysize}"""
+yinc      = {abs(LAT_MAX - LAT_MIN) / ysize}"""
     with open(file, "w") as f:
         f.write(grid_text)
 
